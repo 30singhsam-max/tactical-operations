@@ -1,632 +1,189 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tactical Operations | Season 01</title>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Breach Protocol</title>
 <style>
-* { box-sizing:border-box }
-body {
-  margin:0; overflow:hidden;
-  background:#111a1d; color:white;
-  font-family:Arial,sans-serif;
-}
-button { cursor:pointer; font-weight:bold }
-#game { width:100vw;height:100vh;display:block }
-.screen {
-  position:fixed;inset:0;z-index:5;
-  display:flex;flex-direction:column;
-  justify-content:center;align-items:center;
-  background:linear-gradient(135deg,#10191dee,#182522f5);
-  padding:20px;text-align:center;overflow:auto;
-}
-h1 {font-size:clamp(35px,6vw,65px);letter-spacing:5px;margin:0}
-.gold {color:#d9ad61}
-.sub {color:#aebbb7;letter-spacing:4px;margin:12px 0 30px}
-.panel {width:min(850px,95vw);background:#202d2b;padding:22px;border:1px solid #59665c;border-radius:8px}
-.teams,.operators {display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
-.team,.operator {
-  background:#293936;color:white;border:1px solid #60716b;
-  border-radius:5px;padding:14px;
-}
-.team {min-width:145px}
-.team.active,.operator.active {
-  border:2px solid #d9ad61;background:#465347;
-}
-.operators {margin-top:15px}
-.operator {width:145px;min-height:105px;text-align:left}
-.operator strong {display:block;font-size:14px;margin-bottom:8px}
-.operator small {color:#c4cec8;line-height:1.4}
-#deploy {
-  background:#d9ad61;color:#18201d;border:0;
-  padding:16px 55px;margin-top:22px;border-radius:4px;
-  font-size:17px;
-}
-#hud {
-  display:none;position:fixed;top:15px;left:15px;
-  background:#101a1cdd;border-left:4px solid #d9ad61;
-  padding:14px;line-height:1.8;z-index:2;
-}
-#ability {
-  position:fixed;bottom:25px;left:50%;
-  transform:translateX(-50%);
-  background:#101a1cdd;padding:13px 22px;
-  border:1px solid #d9ad61;text-align:center;
-  z-index:2;min-width:210px;
-}
-#crosshair {
-  display:none;position:fixed;top:50%;left:50%;
-  transform:translate(-50%,-50%);
-  font-size:24px;pointer-events:none;z-index:2;
-}
-#hint {
-  position:fixed;bottom:12px;right:15px;
-  background:#101a1cdd;padding:10px;
-  font-size:12px;line-height:1.7;z-index:2;
-}
-#notice {
-  position:fixed;top:22%;left:50%;
-  transform:translateX(-50%);
-  background:#182522ee;padding:13px 24px;
-  border:1px solid #d9ad61;display:none;
-  z-index:4;text-align:center;
-}
-</style>
-</head>
-<body>
-
-<canvas id="game"></canvas>
-
-<div id="menu" class="screen">
-  <h1>TACTICAL <span class="gold">OPERATIONS</span></h1>
-  <div class="sub">OREGON TRAINING FACILITY • SEASON 01</div>
-  <div class="panel">
-    <h3>SELECT YOUR TEAM</h3>
-    <div class="teams">
-      <button class="team active" data-team="Attack">ATTACK</button>
-      <button class="team" data-team="Defense">DEFENCE</button>
-    </div>
-    <h3>SELECT YOUR OPERATOR</h3>
-    <div class="operators" id="operatorCards"></div>
-  </div>
-  <button id="deploy">DEPLOY</button>
-  <p style="color:#aebbb7;font-size:12px">SINGLE PLAYER • TRAINING MISSION</p>
-</div>
-
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#0c1014;--fg:#e9edf1;--dim:#8d99a6;--ac:#ffb000;--bad:#ff4d4f;--ok:#3ddc97;--panel:rgba(9,12,16,.88);color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 "Barlow Condensed","Arial Narrow",system-ui,sans-serif;overflow:hidden}
+canvas{display:block}
+#hud{position:fixed;inset:0;pointer-events:none;font-size:18px}
+#xh{position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px;border:1.5px solid #fff;border-radius:50%;mix-blend-mode:difference}
+#top{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));left:0;right:0;text-align:center}
+#tm{font-size:34px;font-weight:700;letter-spacing:.04em}
+#phase{color:var(--ac)}
+#msg{position:absolute;top:96px;left:0;right:0;text-align:center;color:var(--ac);font-size:20px;min-height:24px}
+#bl{position:absolute;left:18px;bottom:calc(16px + env(safe-area-inset-bottom,0px));font-size:30px;font-weight:700}
+#br{position:absolute;right:18px;bottom:calc(16px + env(safe-area-inset-bottom,0px));text-align:right;font-size:30px;font-weight:700}
+#br small,#bl small{display:block;font-size:14px;color:var(--dim);font-weight:400}
+#bar{position:absolute;left:50%;top:62%;width:220px;margin-left:-110px;height:8px;background:#333;display:none}
+#bar i{display:block;height:100%;width:0;background:var(--ac)}
+#hurt{position:absolute;inset:0;background:radial-gradient(transparent 40%,var(--bad));opacity:0}
+#ov{position:fixed;inset:0;background:var(--panel);display:flex;align-items:center;justify-content:center;z-index:5;padding:16px;overflow:auto}
+#ov .box{max-width:640px;width:100%}
+h1{margin:0 0 4px;font-size:40px;letter-spacing:.02em}
+#ov p{margin:4px 0 12px;color:var(--dim)}
+table{border-collapse:collapse;width:100%;margin-bottom:14px}
+td{padding:3px 8px 3px 0;border-bottom:1px solid #222a33}
+td:first-child{color:var(--ac);white-space:nowrap;width:38%}
+button{background:var(--ac);color:#111;border:0;padding:10px 22px;font:700 20px inherit;font-family:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+</style></head><body>
 <div id="hud">
-  <b class="gold">TACTICAL OPERATIONS</b><br>
-  Team: <span id="teamName">ATTACK</span><br>
-  Operator: <span id="opName">VANGUARD</span><br>
-  Objective: <span id="progress">0 / 3</span><br>
-  Time: <span id="timer">03:00</span>
+ <div id="xh"></div>
+ <div id="top"><div id="tm">0:35</div><div id="phase">PREP PHASE</div></div>
+ <div id="msg"></div><div id="bar"><i></i></div>
+ <div id="bl"><span id="hp">100</span><small>health</small></div>
+ <div id="br"><span id="ammo">30 / 90</span><small id="wep">ASSAULT RIFLE</small><small id="gad">Breach charges: 2</small></div>
+ <div id="hurt"></div>
 </div>
-
-<div id="crosshair">+</div>
-<div id="notice"></div>
-<div id="ability">
-  <b id="abilityName">Q — ADRENALINE</b><br>
-  <small id="abilityStatus">READY</small>
-</div>
-<div id="hint">
-  WASD — MOVE<br>
-  MOUSE — LOOK<br>
-  E — INTERACT<br>
-  Q — SPECIAL ABILITY<br>
-  SHIFT — RUN<br>
-  ESC — PAUSE
-</div>
-
-<script type="module">
-import * as THREE from
-'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js';
-
-// --------------------------------
-// OPERATORS
-// --------------------------------
-
-const operators = {
-  Attack: [
-    ["Vanguard","Assault","Adrenaline","Temporary speed boost"],
-    ["Phantom","Recon","Echo Scanner","Reveals nearby objectives"],
-    ["Breach","Engineer","Signal Pulse","Reveals all objective locations"],
-    ["Medic","Support","Recovery Kit","Restores player energy"],
-    ["Falcon","Scout","Recon Camera","Deploys a floating scout marker"]
-  ],
-  Defense: [
-    ["Sentinel","Defence","Shield Wall","Creates temporary cover"],
-    ["Spectre","Surveillance","Motion Sensor","Detects nearby activity"],
-    ["Fortress","Engineer","Reinforcement","Creates a protective structure"],
-    ["Glitch","Technology","Decoy Signal","Creates a distracting hologram"],
-    ["Ranger","Scout","Silent Step","Temporarily increases movement speed"]
-  ]
-};
-
-let selectedTeam = "Attack";
-let selectedOperator = operators.Attack[0];
-let started = false;
-let paused = false;
-let score = 0;
-let seconds = 180;
-let abilityReady = true;
-let abilityEnd = 0;
-let speedBoost = false;
-let scanUntil = 0;
-let timerInterval;
-
-// --------------------------------
-// MENU
-// --------------------------------
-
-const cards = document.getElementById("operatorCards");
-
-function renderOperators() {
-  cards.innerHTML = "";
-
-  operators[selectedTeam].forEach((op,i) => {
-    const button = document.createElement("button");
-    button.className = "operator" + (i===0 ? " active" : "");
-    button.innerHTML =
-      `<strong>${op[0].toUpperCase()}</strong>
-       <small>${op[1]}<br>${op[2]}<br>${op[3]}</small>`;
-
-    button.onclick = () => {
-      document.querySelectorAll(".operator").forEach(b =>
-        b.classList.remove("active"));
-      button.classList.add("active");
-      selectedOperator = op;
-    };
-
-    cards.appendChild(button);
-  });
-
-  selectedOperator = operators[selectedTeam][0];
-}
-
-document.querySelectorAll(".team").forEach(button => {
-  button.onclick = () => {
-    selectedTeam = button.dataset.team;
-    document.querySelectorAll(".team").forEach(b =>
-      b.classList.remove("active"));
-    button.classList.add("active");
-    renderOperators();
-  };
-});
-
-renderOperators();
-
-// --------------------------------
-// THREE.JS WORLD
-// --------------------------------
-
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x9caaa6);
-scene.fog = new THREE.Fog(0x9caaa6,35,95);
-
-const camera = new THREE.PerspectiveCamera(
-  75,innerWidth/innerHeight,0.1,150
-);
-camera.position.set(0,1.7,20);
-
-const renderer = new THREE.WebGLRenderer({
-  canvas:document.getElementById("game"),
-  antialias:true
-});
-renderer.setSize(innerWidth,innerHeight);
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
-scene.add(new THREE.HemisphereLight(0xdce9e5,0x394532,2));
-
-const sun = new THREE.DirectionalLight(0xffe3b5,2.5);
-sun.position.set(15,30,15);
-sun.castShadow = true;
-scene.add(sun);
-
-// --------------------------------
-// MATERIALS
-// --------------------------------
-
-const materials = {
-  grass:new THREE.MeshStandardMaterial({color:0x657653}),
-  wood:new THREE.MeshStandardMaterial({color:0x76583e}),
-  dark:new THREE.MeshStandardMaterial({color:0x343c39}),
-  roof:new THREE.MeshStandardMaterial({color:0x343b3c}),
-  concrete:new THREE.MeshStandardMaterial({color:0x85847b}),
-  metal:new THREE.MeshStandardMaterial({color:0x56656a}),
-  gold:new THREE.MeshStandardMaterial({
-    color:0xd9ad61,emissive:0x50330b
-  })
-};
-
-function makeBox(x,y,z,w,h,d,material) {
-  const object = new THREE.Mesh(
-    new THREE.BoxGeometry(w,h,d),material
-  );
-  object.position.set(x,y,z);
-  object.castShadow = true;
-  object.receiveShadow = true;
-  scene.add(object);
-  return object;
-}
-
-// Ground
-makeBox(0,-0.5,0,90,1,90,materials.grass);
-
-// Map boundaries
-makeBox(0,2,-35,70,4,1,materials.wood);
-makeBox(0,2,35,70,4,1,materials.wood);
-makeBox(-35,2,0,1,4,70,materials.wood);
-makeBox(35,2,0,1,4,70,materials.wood);
-
-// Main Oregon-style rural house
-makeBox(-9,0,-5,25,.3,22,materials.concrete);
-makeBox(-9,2,-16,25,4,.6,materials.wood);
-makeBox(-21,2,-5,.6,4,22,materials.wood);
-makeBox(3,2,-5,.6,4,22,materials.wood);
-makeBox(-17,2,6,8,4,.6,materials.wood);
-makeBox(-1,2,6,8,4,.6,materials.wood);
-
-// Interior walls
-makeBox(-9,2,-8,.4,4,14,materials.dark);
-makeBox(-15,2,-2,12,4,.4,materials.wood);
-makeBox(-3,2,-11,0.4,4,8,materials.wood);
-
-// Roof
-makeBox(-9,4.2,-5,25,.5,22,materials.roof);
-
-// Barn
-makeBox(13,1.5,-10,9,3,9,materials.wood);
-makeBox(13,3.2,-10,9.5,.4,9.5,materials.roof);
-
-// Outdoor structures
-makeBox(13,.2,10,9,.4,8,materials.concrete);
-
-for(let i=0;i<8;i++) {
-  makeBox(-27+i*7,.8,15,2,1.6,2,materials.wood);
-}
-
-// Trees
-for(let i=0;i<35;i++) {
-  const x=Math.random()*75-37;
-  const z=Math.random()*75-37;
-  if(x>-24 && x<20 && z>-20 && z<18) continue;
-
-  const trunk=new THREE.Mesh(
-    new THREE.CylinderGeometry(.25,.4,4),
-    materials.wood
-  );
-  trunk.position.set(x,2,z);
-  scene.add(trunk);
-
-  const leaves=new THREE.Mesh(
-    new THREE.ConeGeometry(2.3,6,8),
-    new THREE.MeshStandardMaterial({color:0x354a32})
-  );
-  leaves.position.set(x,6,z);
-  scene.add(leaves);
-}
-
-// --------------------------------
-// OBJECTIVES
-// --------------------------------
-
-const objectives = [
-  new THREE.Vector3(-18,0,12),
-  new THREE.Vector3(15,0,-19),
-  new THREE.Vector3(20,0,20)
-];
-
-const objectiveObjects = [];
-
-objectives.forEach((p,i) => {
-  const marker = new THREE.Mesh(
-    new THREE.CylinderGeometry(.8,.8,.15,24),
-    new THREE.MeshStandardMaterial({
-      color:0x32c9d0,emissive:0x14565c
-    })
-  );
-  marker.position.set(p.x,.15,p.z);
-  scene.add(marker);
-  objectiveObjects.push(marker);
-
-  const pole = new THREE.Mesh(
-    new THREE.CylinderGeometry(.08,.08,2,8),
-    materials.gold
-  );
-  pole.position.set(p.x,1.2,p.z);
-  scene.add(pole);
-});
-
-// --------------------------------
-// PLAYER
-// --------------------------------
-
-const keys = {};
-let yaw=0,pitch=0;
-
-window.addEventListener("keydown",e => {
-  keys[e.code]=true;
-  if(e.code==="KeyE") interact();
-  if(e.code==="KeyQ") useAbility();
-});
-
-window.addEventListener("keyup",e => keys[e.code]=false);
-
-document.addEventListener("mousemove",e => {
-  if(document.pointerLockElement !== renderer.domElement) return;
-  yaw -= e.movementX*.002;
-  pitch -= e.movementY*.002;
-  pitch=THREE.MathUtils.clamp(pitch,-1.35,1.35);
-});
-
-function movement() {
-  if(!started || paused ||
-     document.pointerLockElement!==renderer.domElement) return;
-
-  let speed=keys.ShiftLeft?.13:.075;
-  if(speedBoost) speed*=1.7;
-
-  const forward=new THREE.Vector3(
-    -Math.sin(yaw),0,-Math.cos(yaw)
-  );
-  const right=new THREE.Vector3(
-    Math.cos(yaw),0,-Math.sin(yaw)
-  );
-
-  const move=new THREE.Vector3();
-
-  if(keys.KeyW) move.add(forward);
-  if(keys.KeyS) move.sub(forward);
-  if(keys.KeyA) move.sub(right);
-  if(keys.KeyD) move.add(right);
-
-  if(move.length()>0) {
-    move.normalize().multiplyScalar(speed);
-  }
-
-  camera.position.add(move);
-  camera.position.x=THREE.MathUtils.clamp(camera.position.x,-33,33);
-  camera.position.z=THREE.MathUtils.clamp(camera.position.z,-33,33);
-  camera.position.y=1.7;
-
-  camera.rotation.order="YXZ";
-  camera.rotation.set(pitch,yaw,0);
-}
-
-// --------------------------------
-// INTERACTION
-// --------------------------------
-
-function interact() {
-  if(!started || paused) return;
-
-  let nearest=-1;
-  let nearestDistance=3;
-
-  objectives.forEach((p,i) => {
-    if(objectiveObjects[i].visible) {
-      const distance=camera.position.distanceTo(
-        new THREE.Vector3(p.x,1.7,p.z)
-      );
-      if(distance<nearestDistance) {
-        nearest=i;
-        nearestDistance=distance;
-      }
-    }
-  });
-
-  if(nearest!==-1) {
-    objectiveObjects[nearest].visible=false;
-    score++;
-    document.getElementById("progress").textContent=score+" / 3";
-    notify("OBJECTIVE SECURED!");
-
-    if(score===3) {
-      notify("ALL OBJECTIVES SECURED! MISSION COMPLETE!");
-      started=false;
-      clearInterval(timerInterval);
-    }
-  } else {
-    notify("Move closer to an objective marker.");
-  }
-}
-
-// --------------------------------
-// OPERATOR ABILITIES
-// --------------------------------
-
-function useAbility() {
-  if(!started || paused || !abilityReady) return;
-
-  abilityReady=false;
-  const name=selectedOperator[0];
-
-  switch(name) {
-
-    case "Vanguard":
-      speedBoost=true;
-      abilityEnd=Date.now()+6000;
-      notify("ADRENALINE ACTIVATED!");
-      break;
-
-    case "Phantom":
-    case "Breach":
-    case "Spectre":
-      scanUntil=Date.now()+7000;
-      objectiveObjects.forEach(o=>o.material=materials.gold);
-      notify("SCANNER ACTIVATED!");
-      break;
-
-    case "Medic":
-      notify("RECOVERY KIT ACTIVATED!");
-      break;
-
-    case "Falcon":
-      createGadget(3,materials.gold);
-      notify("RECON CAMERA DEPLOYED!");
-      break;
-
-    case "Sentinel":
-      createGadget(5,materials.metal);
-      notify("SHIELD WALL DEPLOYED!");
-      break;
-
-    case "Fortress":
-      createGadget(4,materials.wood);
-      notify("REINFORCEMENT DEPLOYED!");
-      break;
-
-    case "Glitch":
-      createGadget(2,materials.gold);
-      notify("DECOY SIGNAL ACTIVATED!");
-      break;
-
-    case "Ranger":
-      speedBoost=true;
-      abilityEnd=Date.now()+8000;
-      notify("SILENT STEP ACTIVATED!");
-      break;
-  }
-
-  document.getElementById("abilityStatus").textContent="COOLDOWN";
-
-  setTimeout(() => {
-    abilityReady=true;
-    document.getElementById("abilityStatus").textContent="READY";
-  },15000);
-}
-
-const gadgets=[];
-
-function createGadget(distance,material) {
-  const direction=new THREE.Vector3(
-    -Math.sin(yaw),0,-Math.cos(yaw)
-  );
-
-  const position=camera.position.clone()
-    .add(direction.multiplyScalar(distance));
-
-  const object=new THREE.Mesh(
-    new THREE.BoxGeometry(2,2,.25),material
-  );
-
-  object.position.set(position.x,1,position.z);
-  scene.add(object);
-  gadgets.push({object,expires:Date.now()+10000});
-}
-
-// --------------------------------
-// HUD
-// --------------------------------
-
-function notify(text) {
-  const el=document.getElementById("notice");
-  el.textContent=text;
-  el.style.display="block";
-  setTimeout(()=>el.style.display="none",2500);
-}
-
-function updateTimer() {
-  if(!started || paused) return;
-  seconds--;
-
-  const m=Math.floor(seconds/60);
-  const s=seconds%60;
-
-  document.getElementById("timer").textContent=
-    String(m).padStart(2,"0")+":"+
-    String(s).padStart(2,"0");
-
-  if(seconds<=0) {
-    started=false;
-    notify("TIME UP! TRAINING ROUND OVER.");
-  }
-}
-
-// --------------------------------
-// DEPLOY
-// --------------------------------
-
-document.getElementById("deploy").onclick=()=>{
-  document.getElementById("menu").style.display="none";
-  document.getElementById("hud").style.display="block";
-  document.getElementById("crosshair").style.display="block";
-
-  document.getElementById("teamName").textContent=selectedTeam.toUpperCase();
-  document.getElementById("opName").textContent=selectedOperator[0].toUpperCase();
-  document.getElementById("abilityName").textContent=
-    "Q — "+selectedOperator[2].toUpperCase();
-
-  started=true;
-  renderer.domElement.requestPointerLock();
-
-  timerInterval=setInterval(updateTimer,1000);
-  notify("WELCOME TO THE TRAINING FACILITY.");
-};
-
-document.addEventListener("pointerlockchange",()=>{
-  if(started && document.pointerLockElement!==renderer.domElement) {
-    paused=true;
-    notify("PAUSED — CLICK THE GAME TO RESUME.");
-  } else {
-    paused=false;
-  }
-});
-
-renderer.domElement.addEventListener("click",()=>{
-  if(started && !document.pointerLockElement) {
-    renderer.domElement.requestPointerLock();
-  }
-});
-
-// --------------------------------
-// MAIN GAME LOOP
-// --------------------------------
-
-function animate() {
-  requestAnimationFrame(animate);
-
-  movement();
-
-  if(Date.now()>abilityEnd) speedBoost=false;
-
-  if(Date.now()>scanUntil) {
-    objectiveObjects.forEach((o,i)=>{
-      if(o.visible) o.material.color.set(0x32c9d0);
-    });
-  }
-
-  gadgets.forEach(g=>{
-    if(Date.now()>g.expires) {
-      scene.remove(g.object);
-      g.dead=true;
-    }
-  });
-
-  for(let i=gadgets.length-1;i>=0;i--) {
-    if(gadgets[i].dead) gadgets.splice(i,1);
-  }
-
-  objectiveObjects.forEach(o=>{
-    if(o.visible) o.rotation.y+=.01;
-  });
-
-  renderer.render(scene,camera);
-}
-
-animate();
-
-// --------------------------------
-// RESIZE
-// --------------------------------
-
-window.addEventListener("resize",()=>{
-  camera.aspect=innerWidth/innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth,innerHeight);
-});
-
-</script>
-</body>
-</html>
+<div id="ov"><div class="box">
+ <h1 id="ttl">Breach Protocol</h1>
+ <p id="sub">Attack the house. Scout with the drone, breach walls, then eliminate all 4 defenders or plant the defuser in the objective ring (north-east room).</p>
+ <table>
+ <tr><td>W A S D</td><td>Move</td></tr>
+ <tr><td>Mouse / arrow keys</td><td>Look</td></tr>
+ <tr><td>Left click / Right click</td><td>Fire / aim down sights</td></tr>
+ <tr><td>R</td><td>Reload</td></tr>
+ <tr><td>1 / 2 / mouse wheel</td><td>Rifle / pistol</td></tr>
+ <tr><td>Q / E</td><td>Lean left / right</td></tr>
+ <tr><td>Shift</td><td>Sprint</td></tr>
+ <tr><td>C / Z</td><td>Crouch / prone</td></tr>
+ <tr><td>V</td><td>Melee (also damages wooden walls)</td></tr>
+ <tr><td>G</td><td>Place breach charge on a wooden wall, press again to detonate</td></tr>
+ <tr><td>X</td><td>Toggle drone (prep phase starts in the drone)</td></tr>
+ <tr><td>Left click in drone</td><td>Ping enemies in view</td></tr>
+ <tr><td>Hold F</td><td>Plant defuser inside objective ring</td></tr>
+ <tr><td>Enter</td><td>Skip prep / restart after the round</td></tr>
+ </table>
+ <button id="go">Deploy</button>
+</div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="map.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const R=new THREE.WebGLRenderer({antialias:true});document.body.prepend(R.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x151b22);scene.fog=new THREE.Fog(0x151b22,8,40);
+const cam=new THREE.PerspectiveCamera(75,1,.05,80);cam.rotation.order='YXZ';scene.add(cam);
+scene.add(new THREE.HemisphereLight(0xffffff,0x445566,.75));
+[[-10,0],[0,0],[10,-5],[10,5]].forEach(p=>{const l=new THREE.PointLight(0xffe2b0,.55,16);l.position.set(p[0],2.7,p[1]);scene.add(l)});
+const fl=new THREE.Mesh(new THREE.PlaneGeometry(MAP.size[0],MAP.size[1]),new THREE.MeshLambertMaterial({color:0x3a3f45}));fl.rotation.x=-Math.PI/2;scene.add(fl);
+scene.add(Object.assign(new THREE.GridHelper(30,30,0x444c55,0x2d343b),{position:new THREE.Vector3(0,.01,0)}));
+const ce=new THREE.Mesh(new THREE.PlaneGeometry(MAP.size[0],MAP.size[1]),new THREE.MeshLambertMaterial({color:0x20262d}));ce.rotation.x=Math.PI/2;ce.position.y=3;scene.add(ce);
+
+const walls=[],wm=[],bm=[],bots=[],decals=[];
+function wall(x0,z0,x1,z1,br,h=3){const m=new THREE.Mesh(new THREE.BoxGeometry(x1-x0,h,z1-z0),new THREE.MeshLambertMaterial({color:br?0x9a7448:(h<3?0x6b5a3e:0x5b6671)}));
+ m.position.set((x0+x1)/2,h/2,(z0+z1)/2);scene.add(m);const w={m,x0,z0,x1,z1,br,hp:br?100:1e9,dead:false};m.userData.w=w;walls.push(w);wm.push(m);}
+const V=(x,a,b,br)=>wall(x-.15,a,x+.15,b,br),H=(z,a,b,br)=>wall(a,z-.15,b,z+.15,br);
+MAP.walls.forEach(w=>{const[k,c,p,q,br]=w;k==='V'?V(c,p,q,!!br):H(c,p,q,!!br)});MAP.crates.forEach(c=>wall(c[0],c[1],c[2],c[3],0,1.2));
+
+const OBJ=new THREE.Vector3(MAP.objective[0],0,MAP.objective[1]);
+const ring=new THREE.Mesh(new THREE.RingGeometry(1.7,2.1,32),new THREE.MeshBasicMaterial({color:0xffb000,side:2}));ring.rotation.x=-Math.PI/2;ring.position.set(OBJ.x,.03,OBJ.z);scene.add(ring);
+
+function mkBot(x,z){const g=new THREE.Group();
+ const b=new THREE.Mesh(new THREE.BoxGeometry(.6,1.4,.4),new THREE.MeshLambertMaterial({color:0x7a2d2d}));b.position.y=.75;
+ const h=new THREE.Mesh(new THREE.SphereGeometry(.2,12,8),new THREE.MeshLambertMaterial({color:0xd9a98a}));h.position.y=1.7;
+ const m=new THREE.Mesh(new THREE.OctahedronGeometry(.18),new THREE.MeshBasicMaterial({color:0xff3030,depthTest:false}));m.position.y=2.4;m.visible=false;m.renderOrder=10;
+ g.add(b,h,m);g.position.set(x,0,z);scene.add(g);
+ const o={g,hp:100,alert:false,cd:1+Math.random(),mark:m,los:false,ll:0,dead:false};
+ b.userData={b:o};h.userData={b:o,head:1};bm.push(b,h);bots.push(o);}
+MAP.bots.forEach(b=>mkBot(b[0],b[1]));
+
+const gun=new THREE.Mesh(new THREE.BoxGeometry(.07,.09,.55),new THREE.MeshLambertMaterial({color:0x222222}));gun.position.set(.2,-.17,-.4);cam.add(gun);
+
+const P=new THREE.Vector3(MAP.spawn[0],0,MAP.spawn[1]),D=new THREE.Vector3(MAP.drone[0],.3,MAP.drone[1]);
+let yaw=-Math.PI/2,pitch=0,lean=0,eyeH=1.6,stance=0,hp=100,cur=0,reload=0,nextShot=0,ads=false,charges=2,charge=null,plant=0,melee=0,t=0,phase='prep',tPhase=35,drone=true,started=false,paused=true,msgT=0,over=false;
+const keys={},rc=new THREE.Raycaster(),mouse={l:false};
+const WP=[{n:'ASSAULT RIFLE',mag:30,max:30,res:90,rof:.09,dmg:38,sp:.014,rl:1.8},{n:'PISTOL',mag:15,max:15,res:45,rof:.22,dmg:30,sp:.012,rl:1.3}];
+
+let AC;function beep(f,d,v=.06,ty='square'){try{AC=AC||new AudioContext();const o=AC.createOscillator(),g=AC.createGain();o.type=ty;o.frequency.value=f;g.gain.value=v;g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+d)}catch(e){}}
+function msg(s){$('msg').textContent=s;msgT=3}
+function push(p,r){for(const w of walls){if(w.dead)continue;const cx=Math.max(w.x0,Math.min(p.x,w.x1)),cz=Math.max(w.z0,Math.min(p.z,w.z1));let dx=p.x-cx,dz=p.z-cz,d=Math.hypot(dx,dz);if(d<r){if(d<1e-4){p.x+=r;continue}p.x+=dx/d*(r-d);p.z+=dz/d*(r-d)}}}
+function kill(w){if(w.dead)return;w.dead=true;scene.remove(w.m);wm.splice(wm.indexOf(w.m),1);beep(70,.4,.15,'sawtooth')}
+function hurt(n){hp-=n;$('hurt').style.opacity=1;if(hp<=0&&!over)end(false,'Operator down.')}
+function dmgBot(b,n){if(b.dead)return;b.hp-=n;b.alert=true;beep(900,.05,.05);if(b.hp<=0){b.dead=true;b.g.visible=false;bm.splice(bm.findIndex(m=>m.userData.b===b),2);msg('Enemy eliminated ('+bots.filter(x=>!x.dead).length+' left)');if(bots.every(x=>x.dead))end(true,'All defenders eliminated.')}}
+function decal(h){const d=new THREE.Mesh(new THREE.CircleGeometry(.05,8),new THREE.MeshBasicMaterial({color:0x111111}));const n=h.face.normal.clone();d.position.copy(h.point).addScaledVector(n,.01);d.lookAt(h.point.clone().add(n));h.object.attach(d);decals.push(d);if(decals.length>80){const o=decals.shift();if(o.parent)o.parent.remove(o)}}
+function los(a,b){const d=new THREE.Vector3().subVectors(b,a),L=d.length();rc.set(a,d.normalize());rc.far=L;return rc.intersectObjects(wm).length===0}
+function fire(){const w=WP[cur];if(reload>0||t<nextShot)return;if(w.mag<=0){reloadNow();return}
+ w.mag--;nextShot=t+w.rof;beep(cur?260:160,.07,.09,'sawtooth');
+ const moving=keys.KeyW||keys.KeyA||keys.KeyS||keys.KeyD,sp=w.sp*(ads?.3:1)*(moving?1.6:1)*(stance?.7:1);
+ rc.setFromCamera({x:(Math.random()-.5)*sp*8,y:(Math.random()-.5)*sp*8},cam);rc.far=60;
+ const h=rc.intersectObjects([...wm,...bm])[0];
+ if(h){const u=h.object.userData;if(u.b)dmgBot(u.b,w.dmg*(u.head?3:1));else if(u.w){if(u.w.br){u.w.hp-=12;if(u.w.hp<=0)kill(u.w)}decal(h)}}
+ pitch+=.006;yaw+=(Math.random()-.5)*.004;gun.position.z=-.34;
+ bots.forEach(b=>{if(!b.dead&&Math.hypot(b.g.position.x-P.x,b.g.position.z-P.z)<24)b.alert=true})}
+function reloadNow(){const w=WP[cur];if(reload>0||w.mag>=w.max||w.res<=0)return;reload=w.rl;msg('Reloading')}
+function doMelee(){if(melee>0)return;melee=.8;rc.setFromCamera({x:0,y:0},cam);rc.far=2.2;const h=rc.intersectObjects([...wm,...bm])[0];beep(120,.1,.1);if(!h)return;const u=h.object.userData;if(u.b)dmgBot(u.b,60);else if(u.w&&u.w.br){u.w.hp-=40;if(u.w.hp<=0)kill(u.w)}}
+function gadget(){if(charge){const c=charge.position;beep(50,.7,.25,'sawtooth');
+ walls.forEach(w=>{if(w.br&&!w.dead){const cx=Math.max(w.x0,Math.min(c.x,w.x1)),cz=Math.max(w.z0,Math.min(c.z,w.z1));if(Math.hypot(c.x-cx,c.z-cz)<3.2)kill(w)}});
+ bots.forEach(b=>{if(!b.dead&&Math.hypot(b.g.position.x-c.x,b.g.position.z-c.z)<4)dmgBot(b,100)});
+ if(Math.hypot(P.x-c.x,P.z-c.z)<3.5)hurt(60);scene.remove(charge);charge=null;return}
+ if(charges<=0){msg('No charges left');return}
+ rc.setFromCamera({x:0,y:0},cam);rc.far=3;const h=rc.intersectObjects(wm)[0];
+ if(!h||!h.object.userData.w.br){msg('Aim at a wooden wall within 3 m');return}
+ charge=new THREE.Mesh(new THREE.BoxGeometry(.3,.22,.1),new THREE.MeshBasicMaterial({color:0xff7a00}));charge.position.copy(h.point).addScaledVector(h.face.normal,.06);charge.lookAt(h.point.clone().add(h.face.normal));scene.add(charge);charges--;msg('Charge placed. Press G to detonate.')}
+function ping(){let n=0;bots.forEach(b=>{if(b.dead)return;const p=b.g.position.clone();p.y=1.4;const q=p.clone().project(cam);if(Math.abs(q.x)<1&&Math.abs(q.y)<1&&q.z<1&&los(D,p)){b.mark.visible=true;n++}});msg(n?n+' enemy marked':'No enemy in view');beep(600,.1)}
+function end(win,s){over=true;phase=win?'won':'lost';$('ttl').textContent=win?'Round won':'Round lost';$('sub').textContent=s+' Press Enter to play again.';$('go').textContent='Play again';$('ov').style.display='flex';if(document.exitPointerLock)document.exitPointerLock()}
+
+addEventListener('keydown',e=>{keys[e.code]=true;
+ if(e.code==='Enter'){if(over)location.reload();else if(phase==='prep'&&started)tPhase=0}
+ if(!started||paused||over)return;
+ if(e.code==='KeyR')reloadNow();if(e.code==='Digit1'){cur=0;reload=0}if(e.code==='Digit2'){cur=1;reload=0}
+ if(e.code==='KeyC')stance=stance===1?0:1;if(e.code==='KeyZ')stance=stance===2?0:2;
+ if(e.code==='KeyV'&&phase==='action'&&!drone)doMelee();if(e.code==='KeyG'&&phase==='action'&&!drone)gadget();
+ if(e.code==='KeyX'&&phase==='action'){drone=!drone;msg(drone?'Drone active':'Back to operator')}
+ if(e.code.startsWith('Arrow'))e.preventDefault()});
+addEventListener('keyup',e=>keys[e.code]=false);
+addEventListener('mousemove',e=>{if(document.pointerLockElement){yaw-=e.movementX*.0022;pitch=Math.max(-1.4,Math.min(1.4,pitch-e.movementY*.0022))}});
+addEventListener('mousedown',e=>{if(!started||paused||over)return;if(e.button===0){mouse.l=true;if(drone)ping()}if(e.button===2)ads=true});
+addEventListener('mouseup',e=>{if(e.button===0)mouse.l=false;if(e.button===2)ads=false});
+addEventListener('contextmenu',e=>e.preventDefault());
+addEventListener('wheel',e=>{if(started&&!paused&&phase==='action'){cur=cur?0:1;reload=0}});
+function resume(){$('ov').style.display='none';started=true;paused=false;try{R.domElement.requestPointerLock()}catch(e){}}
+$('go').onclick=()=>over?location.reload():resume();
+document.addEventListener('pointerlockchange',()=>{if(!document.pointerLockElement&&started&&!over){paused=true;$('ttl').textContent='Paused';$('sub').textContent='Click to resume.';$('go').textContent='Resume';$('ov').style.display='flex'}});
+function size(){R.setSize(innerWidth,innerHeight);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()}addEventListener('resize',size);size();
+
+let last=performance.now();
+function loop(now){requestAnimationFrame(loop);const dt=Math.min(.05,(now-last)/1000);last=now;
+ if(started&&!paused&&!over)step(dt);
+ R.render(scene,cam)}
+function step(dt){t+=dt;
+ tPhase-=dt;if(tPhase<=0){if(phase==='prep'){phase='action';tPhase=180;drone=false;msg('Action phase. Breach and clear.');beep(500,.3)}else if(phase==='action'){end(false,'Time expired.')}}
+ if(keys.ArrowLeft)yaw+=dt*2;if(keys.ArrowRight)yaw-=dt*2;if(keys.ArrowUp)pitch=Math.min(1.4,pitch+dt*1.5);if(keys.ArrowDown)pitch=Math.max(-1.4,pitch-dt*1.5);
+ if(phase==='prep')drone=true;
+ const f=(keys.KeyW?1:0)-(keys.KeyS?1:0),r=(keys.KeyD?1:0)-(keys.KeyA?1:0),L=Math.hypot(f,r)||1;
+ const fx=-Math.sin(yaw),fz=-Math.cos(yaw),rx=Math.cos(yaw),rz=-Math.sin(yaw);
+ if(drone){const s=4*dt;D.x+=(fx*f+rx*r)/L*s;D.z+=(fz*f+rz*r)/L*s;push(D,.2)}
+ else if(phase==='action'){let s=[3.2,1.8,.9][stance];if(keys.ShiftLeft&&stance===0&&f>0)s=5;if(ads)s*=.6;P.x+=(fx*f+rx*r)/L*s*dt;P.z+=(fz*f+rz*r)/L*s*dt;push(P,.4)}
+ const lt=(drone||phase!=='action')?0:(keys.KeyE?1:0)-(keys.KeyQ?1:0);lean+=(lt-lean)*Math.min(1,dt*10);
+ eyeH+=([1.6,1.05,.45][stance]-eyeH)*Math.min(1,dt*8);
+ const b=drone?D:P;cam.position.set(b.x+rx*lean*.4,drone?.3:eyeH,b.z+rz*lean*.4);cam.rotation.set(pitch,yaw,drone?0:-lean*.18);
+ cam.fov+=((ads&&!drone?50:75)-cam.fov)*Math.min(1,dt*12);cam.updateProjectionMatrix();
+ gun.visible=!drone;gun.position.z+=(-.4-gun.position.z)*Math.min(1,dt*14);gun.position.x=ads?0:.2;gun.position.y=ads?-.12:-.17;
+ const w=WP[cur];if(reload>0){reload-=dt;if(reload<=0){const n=Math.min(w.max-w.mag,w.res);w.mag+=n;w.res-=n}}
+ melee-=dt;if(mouse.l&&!drone&&phase==='action'&&cur===0)fire();
+ if(mouse.l&&!drone&&phase==='action'&&cur===1)fire();
+ if(mouse.l&&cur===1)mouse.l=false;
+ // bots
+ if(phase==='action')for(const o of bots){if(o.dead)continue;const bp=o.g.position,dx=P.x-bp.x,dz=P.z-bp.z,dist=Math.hypot(dx,dz);
+  o.ll-=dt;if(o.ll<=0){o.ll=.15;o.los=dist<28&&los(new THREE.Vector3(bp.x,1.5,bp.z),new THREE.Vector3(P.x,eyeH,P.z));if(o.los)o.alert=true}
+  if(o.alert){let mx=0,mz=0;
+   if(o.los){o.g.rotation.y=Math.atan2(dx,dz);if(dist>7){mx=dx/dist*1.6;mz=dz/dist*1.6}else{mx=dz/dist*Math.sin(t*1.3)*1.2;mz=-dx/dist*Math.sin(t*1.3)*1.2}
+    o.cd-=dt;if(o.cd<=0){o.cd=.55+Math.random()*.4;beep(190,.08,.04,'sawtooth');if(Math.random()<Math.max(.08,.55-dist*.025)*(stance?.75:1))hurt(12)}}
+   else if(dist<10&&dist>3){mx=dx/dist*1.8;mz=dz/dist*1.8}
+   bp.x+=mx*dt;bp.z+=mz*dt;push(bp,.4)}}
+ // objective
+ const inZ=phase==='action'&&!drone&&Math.hypot(P.x-OBJ.x,P.z-OBJ.z)<2.1;
+ if(inZ&&keys.KeyF){plant+=dt;if(plant>=5)end(true,'Defuser planted.')}else plant=0;
+ $('bar').style.display=plant>0?'block':'none';$('bar').firstChild.style.width=plant/5*100+'%';
+ // HUD
+ const tt=Math.max(0,Math.ceil(tPhase));$('tm').textContent=Math.floor(tt/60)+':'+String(tt%60).padStart(2,'0');
+ $('phase').textContent=phase==='prep'?'PREP PHASE (Enter to skip)':drone?'DRONE':'ACTION PHASE';
+ $('hp').textContent=Math.max(0,Math.round(hp));$('ammo').textContent=w.mag+' / '+w.res;$('wep').textContent=w.n+(reload>0?' (reloading)':'');
+ $('gad').textContent='Breach charges: '+charges+(charge?' (armed)':'');
+ $('hurt').style.opacity=Math.max(0,$('hurt').style.opacity-dt*1.5);
+ if(msgT>0){msgT-=dt;if(msgT<=0)$('msg').textContent=''}
+ if(phase==='prep'&&!$('msg').textContent)msg('Prep: fly the drone and click to ping defenders')}
+requestAnimationFrame(loop);
+</script></body></html>
