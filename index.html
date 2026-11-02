@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tactical Operations | Season 01</title>
+<style>
+* { box-sizing:border-box }
+body {
+  margin:0; overflow:hidden;
+  background:#111a1d; color:white;
+  font-family:Arial,sans-serif;
+}
+button { cursor:pointer; font-weight:bold }
+#game { width:100vw;height:100vh;display:block }
+.screen {
+  position:fixed;inset:0;z-index:5;
+  display:flex;flex-direction:column;
+  justify-content:center;align-items:center;
+  background:linear-gradient(135deg,#10191dee,#182522f5);
+  padding:20px;text-align:center;overflow:auto;
+}
+h1 {font-size:clamp(35px,6vw,65px);letter-spacing:5px;margin:0}
+.gold {color:#d9ad61}
+.sub {color:#aebbb7;letter-spacing:4px;margin:12px 0 30px}
+.panel {width:min(850px,95vw);background:#202d2b;padding:22px;border:1px solid #59665c;border-radius:8px}
+.teams,.operators {display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.team,.operator {
+  background:#293936;color:white;border:1px solid #60716b;
+  border-radius:5px;padding:14px;
+}
+.team {min-width:145px}
+.team.active,.operator.active {
+  border:2px solid #d9ad61;background:#465347;
+}
+.operators {margin-top:15px}
+.operator {width:145px;min-height:105px;text-align:left}
+.operator strong {display:block;font-size:14px;margin-bottom:8px}
+.operator small {color:#c4cec8;line-height:1.4}
+#deploy {
+  background:#d9ad61;color:#18201d;border:0;
+  padding:16px 55px;margin-top:22px;border-radius:4px;
+  font-size:17px;
+}
+#hud {
+  display:none;position:fixed;top:15px;left:15px;
+  background:#101a1cdd;border-left:4px solid #d9ad61;
+  padding:14px;line-height:1.8;z-index:2;
+}
+#ability {
+  position:fixed;bottom:25px;left:50%;
+  transform:translateX(-50%);
+  background:#101a1cdd;padding:13px 22px;
+  border:1px solid #d9ad61;text-align:center;
+  z-index:2;min-width:210px;
+}
+#crosshair {
+  display:none;position:fixed;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  font-size:24px;pointer-events:none;z-index:2;
+}
+#hint {
+  position:fixed;bottom:12px;right:15px;
+  background:#101a1cdd;padding:10px;
+  font-size:12px;line-height:1.7;z-index:2;
+}
+#notice {
+  position:fixed;top:22%;left:50%;
+  transform:translateX(-50%);
+  background:#182522ee;padding:13px 24px;
+  border:1px solid #d9ad61;display:none;
+  z-index:4;text-align:center;
+}
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<div id="menu" class="screen">
+  <h1>TACTICAL <span class="gold">OPERATIONS</span></h1>
+  <div class="sub">OREGON TRAINING FACILITY • SEASON 01</div>
+  <div class="panel">
+    <h3>SELECT YOUR TEAM</h3>
+    <div class="teams">
+      <button class="team active" data-team="Attack">ATTACK</button>
+      <button class="team" data-team="Defense">DEFENCE</button>
+    </div>
+    <h3>SELECT YOUR OPERATOR</h3>
+    <div class="operators" id="operatorCards"></div>
+  </div>
+  <button id="deploy">DEPLOY</button>
+  <p style="color:#aebbb7;font-size:12px">SINGLE PLAYER • TRAINING MISSION</p>
+</div>
+
+<div id="hud">
+  <b class="gold">TACTICAL OPERATIONS</b><br>
+  Team: <span id="teamName">ATTACK</span><br>
+  Operator: <span id="opName">VANGUARD</span><br>
+  Objective: <span id="progress">0 / 3</span><br>
+  Time: <span id="timer">03:00</span>
+</div>
+
+<div id="crosshair">+</div>
+<div id="notice"></div>
+<div id="ability">
+  <b id="abilityName">Q — ADRENALINE</b><br>
+  <small id="abilityStatus">READY</small>
+</div>
+<div id="hint">
+  WASD — MOVE<br>
+  MOUSE — LOOK<br>
+  E — INTERACT<br>
+  Q — SPECIAL ABILITY<br>
+  SHIFT — RUN<br>
+  ESC — PAUSE
+</div>
+
+<script type="module">
+import * as THREE from
+'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js';
+
+// --------------------------------
+// OPERATORS
+// --------------------------------
+
+const operators = {
+  Attack: [
+    ["Vanguard","Assault","Adrenaline","Temporary speed boost"],
+    ["Phantom","Recon","Echo Scanner","Reveals nearby objectives"],
+    ["Breach","Engineer","Signal Pulse","Reveals all objective locations"],
+    ["Medic","Support","Recovery Kit","Restores player energy"],
+    ["Falcon","Scout","Recon Camera","Deploys a floating scout marker"]
+  ],
+  Defense: [
+    ["Sentinel","Defence","Shield Wall","Creates temporary cover"],
+    ["Spectre","Surveillance","Motion Sensor","Detects nearby activity"],
+    ["Fortress","Engineer","Reinforcement","Creates a protective structure"],
+    ["Glitch","Technology","Decoy Signal","Creates a distracting hologram"],
+    ["Ranger","Scout","Silent Step","Temporarily increases movement speed"]
+  ]
+};
+
+let selectedTeam = "Attack";
+let selectedOperator = operators.Attack[0];
+let started = false;
+let paused = false;
+let score = 0;
+let seconds = 180;
+let abilityReady = true;
+let abilityEnd = 0;
+let speedBoost = false;
+let scanUntil = 0;
+let timerInterval;
+
+// --------------------------------
+// MENU
+// --------------------------------
+
+const cards = document.getElementById("operatorCards");
+
+function renderOperators() {
+  cards.innerHTML = "";
+
+  operators[selectedTeam].forEach((op,i) => {
+    const button = document.createElement("button");
+    button.className = "operator" + (i===0 ? " active" : "");
+    button.innerHTML =
+      `<strong>${op[0].toUpperCase()}</strong>
+       <small>${op[1]}<br>${op[2]}<br>${op[3]}</small>`;
+
+    button.onclick = () => {
+      document.querySelectorAll(".operator").forEach(b =>
+        b.classList.remove("active"));
+      button.classList.add("active");
+      selectedOperator = op;
+    };
+
+    cards.appendChild(button);
+  });
+
+  selectedOperator = operators[selectedTeam][0];
+}
+
+document.querySelectorAll(".team").forEach(button => {
+  button.onclick = () => {
+    selectedTeam = button.dataset.team;
+    document.querySelectorAll(".team").forEach(b =>
+      b.classList.remove("active"));
+    button.classList.add("active");
+    renderOperators();
+  };
+});
+
+renderOperators();
+
+// --------------------------------
+// THREE.JS WORLD
+// --------------------------------
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x9caaa6);
+scene.fog = new THREE.Fog(0x9caaa6,35,95);
+
+const camera = new THREE.PerspectiveCamera(
+  75,innerWidth/innerHeight,0.1,150
+);
+camera.position.set(0,1.7,20);
+
+const renderer = new THREE.WebGLRenderer({
+  canvas:document.getElementById("game"),
+  antialias:true
+});
+renderer.setSize(innerWidth,innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+scene.add(new THREE.HemisphereLight(0xdce9e5,0x394532,2));
+
+const sun = new THREE.DirectionalLight(0xffe3b5,2.5);
+sun.position.set(15,30,15);
+sun.castShadow = true;
+scene.add(sun);
+
+// --------------------------------
+// MATERIALS
+// --------------------------------
+
+const materials = {
+  grass:new THREE.MeshStandardMaterial({color:0x657653}),
+  wood:new THREE.MeshStandardMaterial({color:0x76583e}),
+  dark:new THREE.MeshStandardMaterial({color:0x343c39}),
+  roof:new THREE.MeshStandardMaterial({color:0x343b3c}),
+  concrete:new THREE.MeshStandardMaterial({color:0x85847b}),
+  metal:new THREE.MeshStandardMaterial({color:0x56656a}),
+  gold:new THREE.MeshStandardMaterial({
+    color:0xd9ad61,emissive:0x50330b
+  })
+};
+
+function makeBox(x,y,z,w,h,d,material) {
+  const object = new THREE.Mesh(
+    new THREE.BoxGeometry(w,h,d),material
+  );
+  object.position.set(x,y,z);
+  object.castShadow = true;
+  object.receiveShadow = true;
+  scene.add(object);
+  return object;
+}
+
+// Ground
+makeBox(0,-0.5,0,90,1,90,materials.grass);
+
+// Map boundaries
+makeBox(0,2,-35,70,4,1,materials.wood);
+makeBox(0,2,35,70,4,1,materials.wood);
+makeBox(-35,2,0,1,4,70,materials.wood);
+makeBox(35,2,0,1,4,70,materials.wood);
+
+// Main Oregon-style rural house
+makeBox(-9,0,-5,25,.3,22,materials.concrete);
+makeBox(-9,2,-16,25,4,.6,materials.wood);
+makeBox(-21,2,-5,.6,4,22,materials.wood);
+makeBox(3,2,-5,.6,4,22,materials.wood);
+makeBox(-17,2,6,8,4,.6,materials.wood);
+makeBox(-1,2,6,8,4,.6,materials.wood);
+
+// Interior walls
+makeBox(-9,2,-8,.4,4,14,materials.dark);
+makeBox(-15,2,-2,12,4,.4,materials.wood);
+makeBox(-3,2,-11,0.4,4,8,materials.wood);
+
+// Roof
+makeBox(-9,4.2,-5,25,.5,22,materials.roof);
+
+// Barn
+makeBox(13,1.5,-10,9,3,9,materials.wood);
+makeBox(13,3.2,-10,9.5,.4,9.5,materials.roof);
+
+// Outdoor structures
+makeBox(13,.2,10,9,.4,8,materials.concrete);
+
+for(let i=0;i<8;i++) {
+  makeBox(-27+i*7,.8,15,2,1.6,2,materials.wood);
+}
+
+// Trees
+for(let i=0;i<35;i++) {
+  const x=Math.random()*75-37;
+  const z=Math.random()*75-37;
+  if(x>-24 && x<20 && z>-20 && z<18) continue;
+
+  const trunk=new THREE.Mesh(
+    new THREE.CylinderGeometry(.25,.4,4),
+    materials.wood
+  );
+  trunk.position.set(x,2,z);
+  scene.add(trunk);
+
+  const leaves=new THREE.Mesh(
+    new THREE.ConeGeometry(2.3,6,8),
+    new THREE.MeshStandardMaterial({color:0x354a32})
+  );
+  leaves.position.set(x,6,z);
+  scene.add(leaves);
+}
+
+// --------------------------------
+// OBJECTIVES
+// --------------------------------
+
+const objectives = [
+  new THREE.Vector3(-18,0,12),
+  new THREE.Vector3(15,0,-19),
+  new THREE.Vector3(20,0,20)
+];
+
+const objectiveObjects = [];
+
+objectives.forEach((p,i) => {
+  const marker = new THREE.Mesh(
+    new THREE.CylinderGeometry(.8,.8,.15,24),
+    new THREE.MeshStandardMaterial({
+      color:0x32c9d0,emissive:0x14565c
+    })
+  );
+  marker.position.set(p.x,.15,p.z);
+  scene.add(marker);
+  objectiveObjects.push(marker);
+
+  const pole = new THREE.Mesh(
+    new THREE.CylinderGeometry(.08,.08,2,8),
+    materials.gold
+  );
+  pole.position.set(p.x,1.2,p.z);
+  scene.add(pole);
+});
+
+// --------------------------------
+// PLAYER
+// --------------------------------
+
+const keys = {};
+let yaw=0,pitch=0;
+
+window.addEventListener("keydown",e => {
+  keys[e.code]=true;
+  if(e.code==="KeyE") interact();
+  if(e.code==="KeyQ") useAbility();
+});
+
+window.addEventListener("keyup",e => keys[e.code]=false);
+
+document.addEventListener("mousemove",e => {
+  if(document.pointerLockElement !== renderer.domElement) return;
+  yaw -= e.movementX*.002;
+  pitch -= e.movementY*.002;
+  pitch=THREE.MathUtils.clamp(pitch,-1.35,1.35);
+});
+
+function movement() {
+  if(!started || paused ||
+     document.pointerLockElement!==renderer.domElement) return;
+
+  let speed=keys.ShiftLeft?.13:.075;
+  if(speedBoost) speed*=1.7;
+
+  const forward=new THREE.Vector3(
+    -Math.sin(yaw),0,-Math.cos(yaw)
+  );
+  const right=new THREE.Vector3(
+    Math.cos(yaw),0,-Math.sin(yaw)
+  );
+
+  const move=new THREE.Vector3();
+
+  if(keys.KeyW) move.add(forward);
+  if(keys.KeyS) move.sub(forward);
+  if(keys.KeyA) move.sub(right);
+  if(keys.KeyD) move.add(right);
+
+  if(move.length()>0) {
+    move.normalize().multiplyScalar(speed);
+  }
+
+  camera.position.add(move);
+  camera.position.x=THREE.MathUtils.clamp(camera.position.x,-33,33);
+  camera.position.z=THREE.MathUtils.clamp(camera.position.z,-33,33);
+  camera.position.y=1.7;
+
+  camera.rotation.order="YXZ";
+  camera.rotation.set(pitch,yaw,0);
+}
+
+// --------------------------------
+// INTERACTION
+// --------------------------------
+
+function interact() {
+  if(!started || paused) return;
+
+  let nearest=-1;
+  let nearestDistance=3;
+
+  objectives.forEach((p,i) => {
+    if(objectiveObjects[i].visible) {
+      const distance=camera.position.distanceTo(
+        new THREE.Vector3(p.x,1.7,p.z)
+      );
+      if(distance<nearestDistance) {
+        nearest=i;
+        nearestDistance=distance;
+      }
+    }
+  });
+
+  if(nearest!==-1) {
+    objectiveObjects[nearest].visible=false;
+    score++;
+    document.getElementById("progress").textContent=score+" / 3";
+    notify("OBJECTIVE SECURED!");
+
+    if(score===3) {
+      notify("ALL OBJECTIVES SECURED! MISSION COMPLETE!");
+      started=false;
+      clearInterval(timerInterval);
+    }
+  } else {
+    notify("Move closer to an objective marker.");
+  }
+}
+
+// --------------------------------
+// OPERATOR ABILITIES
+// --------------------------------
+
+function useAbility() {
+  if(!started || paused || !abilityReady) return;
+
+  abilityReady=false;
+  const name=selectedOperator[0];
+
+  switch(name) {
+
+    case "Vanguard":
+      speedBoost=true;
+      abilityEnd=Date.now()+6000;
+      notify("ADRENALINE ACTIVATED!");
+      break;
+
+    case "Phantom":
+    case "Breach":
+    case "Spectre":
+      scanUntil=Date.now()+7000;
+      objectiveObjects.forEach(o=>o.material=materials.gold);
+      notify("SCANNER ACTIVATED!");
+      break;
+
+    case "Medic":
+      notify("RECOVERY KIT ACTIVATED!");
+      break;
+
+    case "Falcon":
+      createGadget(3,materials.gold);
+      notify("RECON CAMERA DEPLOYED!");
+      break;
+
+    case "Sentinel":
+      createGadget(5,materials.metal);
+      notify("SHIELD WALL DEPLOYED!");
+      break;
+
+    case "Fortress":
+      createGadget(4,materials.wood);
+      notify("REINFORCEMENT DEPLOYED!");
+      break;
+
+    case "Glitch":
+      createGadget(2,materials.gold);
+      notify("DECOY SIGNAL ACTIVATED!");
+      break;
+
+    case "Ranger":
+      speedBoost=true;
+      abilityEnd=Date.now()+8000;
+      notify("SILENT STEP ACTIVATED!");
+      break;
+  }
+
+  document.getElementById("abilityStatus").textContent="COOLDOWN";
+
+  setTimeout(() => {
+    abilityReady=true;
+    document.getElementById("abilityStatus").textContent="READY";
+  },15000);
+}
+
+const gadgets=[];
+
+function createGadget(distance,material) {
+  const direction=new THREE.Vector3(
+    -Math.sin(yaw),0,-Math.cos(yaw)
+  );
+
+  const position=camera.position.clone()
+    .add(direction.multiplyScalar(distance));
+
+  const object=new THREE.Mesh(
+    new THREE.BoxGeometry(2,2,.25),material
+  );
+
+  object.position.set(position.x,1,position.z);
+  scene.add(object);
+  gadgets.push({object,expires:Date.now()+10000});
+}
+
+// --------------------------------
+// HUD
+// --------------------------------
+
+function notify(text) {
+  const el=document.getElementById("notice");
+  el.textContent=text;
+  el.style.display="block";
+  setTimeout(()=>el.style.display="none",2500);
+}
+
+function updateTimer() {
+  if(!started || paused) return;
+  seconds--;
+
+  const m=Math.floor(seconds/60);
+  const s=seconds%60;
+
+  document.getElementById("timer").textContent=
+    String(m).padStart(2,"0")+":"+
+    String(s).padStart(2,"0");
+
+  if(seconds<=0) {
+    started=false;
+    notify("TIME UP! TRAINING ROUND OVER.");
+  }
+}
+
+// --------------------------------
+// DEPLOY
+// --------------------------------
+
+document.getElementById("deploy").onclick=()=>{
+  document.getElementById("menu").style.display="none";
+  document.getElementById("hud").style.display="block";
+  document.getElementById("crosshair").style.display="block";
+
+  document.getElementById("teamName").textContent=selectedTeam.toUpperCase();
+  document.getElementById("opName").textContent=selectedOperator[0].toUpperCase();
+  document.getElementById("abilityName").textContent=
+    "Q — "+selectedOperator[2].toUpperCase();
+
+  started=true;
+  renderer.domElement.requestPointerLock();
+
+  timerInterval=setInterval(updateTimer,1000);
+  notify("WELCOME TO THE TRAINING FACILITY.");
+};
+
+document.addEventListener("pointerlockchange",()=>{
+  if(started && document.pointerLockElement!==renderer.domElement) {
+    paused=true;
+    notify("PAUSED — CLICK THE GAME TO RESUME.");
+  } else {
+    paused=false;
+  }
+});
+
+renderer.domElement.addEventListener("click",()=>{
+  if(started && !document.pointerLockElement) {
+    renderer.domElement.requestPointerLock();
+  }
+});
+
+// --------------------------------
+// MAIN GAME LOOP
+// --------------------------------
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  movement();
+
+  if(Date.now()>abilityEnd) speedBoost=false;
+
+  if(Date.now()>scanUntil) {
+    objectiveObjects.forEach((o,i)=>{
+      if(o.visible) o.material.color.set(0x32c9d0);
+    });
+  }
+
+  gadgets.forEach(g=>{
+    if(Date.now()>g.expires) {
+      scene.remove(g.object);
+      g.dead=true;
+    }
+  });
+
+  for(let i=gadgets.length-1;i>=0;i--) {
+    if(gadgets[i].dead) gadgets.splice(i,1);
+  }
+
+  objectiveObjects.forEach(o=>{
+    if(o.visible) o.rotation.y+=.01;
+  });
+
+  renderer.render(scene,camera);
+}
+
+animate();
+
+// --------------------------------
+// RESIZE
+// --------------------------------
+
+window.addEventListener("resize",()=>{
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+
+</script>
+</body>
+</html>
